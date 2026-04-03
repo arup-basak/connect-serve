@@ -331,6 +331,47 @@ export function indexPageHtml(workerUrl: string): string {
       gap: 6px;
     }
 
+    /* ── TTL selector ── */
+    .ttl-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ttl-label {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .ttl-pills {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .ttl-pill {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      width: auto;
+    }
+    .ttl-pill:hover { color: var(--text); border-color: var(--muted2); }
+    .ttl-pill.selected {
+      background: var(--blue-dim);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .ttl-pill:active { transform: scale(0.96); }
+
     /* ── Buttons ── */
     button {
       width: 100%;
@@ -517,6 +558,19 @@ export function indexPageHtml(workerUrl: string): string {
           <!-- Error -->
           <div class="error-banner" id="send-error"></div>
 
+          <!-- TTL selector -->
+          <div class="ttl-row" id="ttl-row">
+            <span class="ttl-label">Delete after</span>
+            <div class="ttl-pills">
+              <button class="ttl-pill" data-ttl="900"   onclick="selectTtl(this)">15 min</button>
+              <button class="ttl-pill selected" data-ttl="3600"  onclick="selectTtl(this)">1 hour</button>
+              <button class="ttl-pill" data-ttl="21600" onclick="selectTtl(this)">6 hours</button>
+              <button class="ttl-pill" data-ttl="86400" onclick="selectTtl(this)">1 day</button>
+              <button class="ttl-pill" data-ttl="259200" onclick="selectTtl(this)">3 days</button>
+              <button class="ttl-pill" data-ttl="604800" onclick="selectTtl(this)">7 days</button>
+            </div>
+          </div>
+
           <!-- Progress -->
           <div class="progress-block" id="progress-block">
             <div class="progress-header">
@@ -543,8 +597,8 @@ export function indexPageHtml(workerUrl: string): string {
               <div class="share-link-input" id="share-link" title="Share link"></div>
               <button class="btn-copy" id="copy-btn" onclick="copyLink()">Copy</button>
             </div>
-            <div class="expiry-note">
-              &bull; Expires in 1 hour &bull; Max one recipient
+            <div class="expiry-note" id="expiry-note">
+              &bull; Expires &mdash; &bull; Max one recipient
             </div>
           </div>
 
@@ -693,6 +747,14 @@ export function indexPageHtml(workerUrl: string): string {
 
     let selectedFile = null;
     let uploadAborted = false;
+    let selectedTtl = 3600; // default 1 hour
+    let sessionExpiresAt = null;
+
+    window.selectTtl = function(btn) {
+      document.querySelectorAll('.ttl-pill').forEach(p => p.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedTtl = parseInt(btn.dataset.ttl, 10);
+    };
 
     // Drop zone events
     const dz = $('dropzone');
@@ -747,6 +809,7 @@ export function indexPageHtml(workerUrl: string): string {
       $('dropzone').style.display = '';
       $('progress-block').classList.remove('visible');
       $('share-block').classList.remove('visible');
+      $('ttl-row').style.display = '';
       $('send-btn').disabled = true;
       $('send-btn').textContent = 'Send File';
       $('send-btn').style.display = '';
@@ -778,6 +841,7 @@ export function indexPageHtml(workerUrl: string): string {
       $('send-btn').textContent = 'Uploading…';
       $('progress-block').classList.add('visible');
       $('file-clear').style.display = 'none';
+      $('ttl-row').style.display = 'none';
 
       const file = selectedFile;
       const totalParts = Math.ceil(file.size / CHUNK_SIZE);
@@ -793,6 +857,7 @@ export function indexPageHtml(workerUrl: string): string {
             fileSize: file.size,
             mimeType: file.type || 'application/octet-stream',
             checksum: '',
+            ttl: selectedTtl,
           }),
         });
         if (!res.ok) {
@@ -801,6 +866,8 @@ export function indexPageHtml(workerUrl: string): string {
         }
         const data = await res.json();
         sessionId = data.sessionId;
+        // Store expiresAt so we can display it on the share card after complete
+        sessionExpiresAt = data.expiresAt;
       } catch (e) {
         showSendError(e.message);
         $('send-btn').disabled = false;
@@ -891,6 +958,20 @@ export function indexPageHtml(workerUrl: string): string {
       $('share-link').textContent = shareLink;
       $('share-link').title = shareLink;
       $('share-block').classList.add('visible');
+
+      // Show real expiry datetime
+      if (sessionExpiresAt) {
+        const exp = new Date(sessionExpiresAt);
+        const now = new Date();
+        const diffMs = exp - now;
+        const diffH = diffMs / 3600000;
+        let label;
+        if (diffH < 1)       label = Math.round(diffMs / 60000) + ' min';
+        else if (diffH < 24) label = Math.round(diffH) + ' hour' + (Math.round(diffH) !== 1 ? 's' : '');
+        else                 label = Math.round(diffH / 24) + ' day' + (Math.round(diffH / 24) !== 1 ? 's' : '');
+        $('expiry-note').textContent =
+          '• Deletes in ' + label + ' (' + exp.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ')  • Max one recipient';
+      }
 
       $('send-btn').style.display = 'none';
       $('new-btn').style.display = '';

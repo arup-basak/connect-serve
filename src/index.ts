@@ -12,11 +12,22 @@ import { docsPageHtml } from "./pages/docs";
 import { runCleanup } from "./cleanup";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const TTL_SECONDS = 60 * 60; // 1 hour
+const TTL_DEFAULT  = 60 * 60;           // 1 hour (used when caller omits ttl)
+const TTL_MAX      = 7 * 24 * 60 * 60; // 7 days hard ceiling
 const MAX_FILE_SIZE_DEFAULT = 512 * 1024 * 1024; // 512 MB
 // R2 multipart minimum is 5 MB for all parts except the last.
 // Clients MUST use this chunk size (or larger) to avoid EntityTooSmall errors.
 const MIN_PART_SIZE = 5 * 1024 * 1024; // 5 MB
+
+// Discrete TTL values the API accepts (seconds). Anything else is rejected.
+const ALLOWED_TTLS = new Set([
+  15 * 60,          // 15 min
+  60 * 60,          // 1 hour
+  6  * 60 * 60,     // 6 hours
+  24 * 60 * 60,     // 1 day
+  3  * 24 * 60 * 60,// 3 days
+  7  * 24 * 60 * 60,// 7 days
+]);
 
 // ── App ──────────────────────────────────────────────────────────────────────
 const app = new Hono<{ Bindings: Bindings }>();
@@ -55,7 +66,7 @@ app.post("/session", async (c) => {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { fileName, fileSize, mimeType, checksum } = body;
+  const { fileName, fileSize, mimeType, checksum, ttl: requestedTtl } = body;
 
   if (!fileName || !fileSize || !mimeType) {
     return c.json({ error: "fileName, fileSize, and mimeType are required" }, 400);
@@ -65,10 +76,16 @@ app.post("/session", async (c) => {
     return c.json({ error: `File exceeds ${maxFileSize / (1024 * 1024)} MB limit` }, 413);
   }
 
+  // Resolve TTL: use caller value if it's one of the allowed presets, else default.
+  const ttlSeconds = requestedTtl && ALLOWED_TTLS.has(requestedTtl)
+    ? Math.min(requestedTtl, TTL_MAX)
+    : TTL_DEFAULT;
+
   const sessionId = crypto.randomUUID();
   // Sanitise filename for use as an R2 key segment
   const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const r2Key = `transfers/${sessionId}/${safeFileName}`;
+  const expiresAt = Date.now() + ttlSeconds * 1000;
 
   // Initiate R2 multipart upload
   const multipart = await c.env.R2.createMultipartUpload(r2Key, {
@@ -76,7 +93,7 @@ app.post("/session", async (c) => {
     customMetadata: {
       originalName: fileName,
       checksum: checksum ?? "",
-      expiresAt: String(Date.now() + TTL_SECONDS * 1000),
+      expiresAt: String(expiresAt),
     },
   });
 
@@ -87,16 +104,16 @@ app.post("/session", async (c) => {
     fileSize,
     mimeType,
     checksum: checksum ?? "",
-    expiresAt: Date.now() + TTL_SECONDS * 1000,
+    expiresAt,
     parts: [],
     complete: false,
   };
 
   await c.env.DB.put(`session:${sessionId}`, JSON.stringify(record), {
-    expirationTtl: TTL_SECONDS,
+    expirationTtl: ttlSeconds,
   });
 
-  return c.json({ sessionId, uploadId: multipart.uploadId });
+  return c.json({ sessionId, uploadId: multipart.uploadId, expiresAt });
 });
 
 // ── 2. Proxy chunk PUT → R2 multipart part ───────────────────────────────────
@@ -149,9 +166,10 @@ app.put("/upload-part", async (c) => {
     session.parts.push({ partNumber, etag: part.etag });
   }
 
-  // Persist updated parts list
+  // Persist updated parts list — preserve the original TTL the session was created with
+  const remainingTtl = Math.max(60, Math.ceil((session.expiresAt - Date.now()) / 1000));
   await c.env.DB.put(`session:${sessionId}`, JSON.stringify(session), {
-    expirationTtl: TTL_SECONDS,
+    expirationTtl: remainingTtl,
   });
 
   return c.json({ partNumber, etag: part.etag });
@@ -199,12 +217,14 @@ app.post("/complete", async (c) => {
   session.complete = true;
   session.parts = sortedParts; // store final sorted list
 
+  const remainingTtl = Math.max(60, Math.ceil((session.expiresAt - Date.now()) / 1000));
   await c.env.DB.put(`session:${sessionId}`, JSON.stringify(session), {
-    expirationTtl: TTL_SECONDS,
+    expirationTtl: remainingTtl,
   });
 
   return c.json({
     shareLink: `${c.env.WORKER_URL}/receive?session=${sessionId}`,
+    expiresAt: session.expiresAt,
   });
 });
 

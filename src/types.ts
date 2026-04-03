@@ -27,6 +27,8 @@ export interface CreateSessionBody {
   fileSize: number;
   mimeType: string;
   checksum: string;
+  // Requested TTL in seconds. Server clamps to ALLOWED_TTLS. Defaults to 3600.
+  ttl?: number;
 }
 
 export interface CompleteBody {
