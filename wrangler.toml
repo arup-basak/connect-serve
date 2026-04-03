@@ -1,0 +1,40 @@
+name = "connect-transfer-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ── R2 Bucket ────────────────────────────────────────────────────────────────
+# Create with: wrangler r2 bucket create connect-transfers
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "connect-transfers"
+
+# ── KV Namespace ─────────────────────────────────────────────────────────────
+# Create with: wrangler kv namespace create connect-sessions
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "DB"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# ── Cron: cleanup expired sessions every 15 minutes ─────────────────────────
+[triggers]
+crons = ["*/15 * * * *"]
+
+# ── Environment variables ────────────────────────────────────────────────────
+[vars]
+# 512 MB in bytes
+MAX_FILE_SIZE = "536870912"
+# Set to your actual Worker URL after first deploy, e.g. https://connect-transfer-worker.your-subdomain.workers.dev
+# Or your custom domain: https://transfer.yourapp.io
+WORKER_URL = "http://localhost:8787"
+
+# ── Local dev overrides ──────────────────────────────────────────────────────
+[dev]
+port = 8787
+local_protocol = "http"
+
+# ── R2 lifecycle (safety net — belt and suspenders with KV TTL) ──────────────
+# Configure this in the Cloudflare dashboard:
+#   R2 → connect-transfers → Settings → Lifecycle rules
+#   Prefix: transfers/   Delete after: 1 day
+# This catches any objects whose KV session was cleaned up before R2 delete ran.
