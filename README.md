@@ -1,98 +1,139 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# connect-serve
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The backend for **Connect** — a peer-assisted file transfer service. Built as a [Cloudflare Worker](https://developers.cloudflare.com/workers/) with [Hono](https://hono.dev/), it accepts large multipart uploads into **R2**, tracks sessions in **KV**, and serves a browser **receive** page that recipients open from a share link.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The intended pairing is a native client (e.g. a Mac app) that chunks and uploads a file, then hands a `/receive?session=…` link to the recipient — who can download directly in their browser with no account required.
 
-## Description
+## How it works
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+```
+Sender (Mac app)                   Worker (this repo)              Recipient (browser)
+──────────────────                 ──────────────────              ───────────────────
+POST /session         ──────────>  KV: store session
+                      <──────────  sessionId + uploadId
 
-## Project setup
+PUT /upload-part ×N   ──────────>  R2: multipart upload parts
 
-```bash
-$ pnpm install
+POST /complete        ──────────>  R2: complete multipart
+                      <──────────  shareLink (/receive?session=…)
+
+Share link sent to recipient ───────────────────────────────────>  GET /receive
+                                                                    polls /status
+                                                                    GET /download  ──> streams from R2
 ```
 
-## Compile and run the project
+## Features
 
-```bash
-# development
-$ pnpm run start
+- **Multipart upload** — chunks stream directly into R2; minimum part size is **5 MB** (R2 requirement), except the final part.
+- **Configurable TTL** — sessions expire after one of six presets (15 min, 1 h, 6 h, 1 day, 3 days, 7 days). Default is 1 hour.
+- **Streaming download** — the receive page uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) (Chrome/Edge) to write directly to disk with no RAM spike. Falls back to an in-memory Blob for other browsers.
+- **HTTP range requests** — R2 handles partial content natively; the download endpoint passes range headers through.
+- **Idempotent parts** — re-uploading a part number overwrites the previous ETag, so retries are safe.
+- **Scheduled cleanup** — a cron job runs every 15 minutes and deletes expired sessions from both KV and R2.
 
-# watch mode
-$ pnpm run start:dev
+## Requirements
 
-# production mode
-$ pnpm run start:prod
+- Node.js 22+
+- [pnpm](https://pnpm.io/) (lockfile: `pnpm-lock.yaml`)
+- [Wrangler](https://developers.cloudflare.com/workers/wrangler/) (dev dependency)
+- Cloudflare account with **R2** and **Workers KV** enabled
+
+## Setup
+
+1. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+2. **Create Cloudflare resources** (once per account/environment)
+
+   ```bash
+   pnpm run kv:create    # KV namespace for sessions → copy the printed id
+   pnpm run r2:create    # R2 bucket for uploaded files
+   ```
+
+3. **Configure `wrangler.toml`**
+
+   - Set `[[kv_namespaces]]` → `id` to the ID printed by `kv:create` (replace `REPLACE_WITH_KV_NAMESPACE_ID`).
+   - After your first deploy, update `[vars].WORKER_URL` to your Worker URL or custom domain — this value is embedded in `shareLink` responses.
+   - Optional: adjust `[vars].MAX_FILE_SIZE` (default `536870912` = 512 MB).
+
+4. **R2 lifecycle rule (recommended)**
+
+   In the Cloudflare dashboard: R2 → `connect-transfers` → **Settings** → **Lifecycle rules**
+   - Prefix: `transfers/`
+   - Delete after: **1 day**
+
+   This is a safety net that removes objects even if the KV record was cleaned up before the scheduled job ran.
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Local dev server (`wrangler dev`, port **8787**) |
+| `pnpm deploy` | Deploy to Cloudflare Workers |
+| `pnpm deploy:dry` | Dry-run deploy (no publish) |
+| `pnpm tail` | Stream live Worker logs |
+| `pnpm typecheck` | TypeScript check (`tsc --noEmit`) |
+| `pnpm lint` | ESLint |
+| `pnpm format` | Prettier |
+
+## HTTP API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Landing page |
+| `GET` | `/docs` | API documentation |
+| `GET` | `/receive` | Recipient download page (opened from share link) |
+| `GET` | `/health` | `{ ok: true }` |
+| `POST` | `/session` | Start a new upload session |
+| `PUT` | `/upload-part?session=&part=` | Upload a single chunk (raw bytes) |
+| `POST` | `/complete` | Finalise the multipart upload |
+| `GET` | `/status?session=` | Poll upload state |
+| `GET` | `/download?session=` | Stream the completed file (supports `Range`) |
+
+CORS is open (`*`) for `GET`, `POST`, `PUT`, `OPTIONS`.
+
+### POST `/session`
+
+Request body:
+
+```jsonc
+{
+  "fileName": "archive.zip",   // required
+  "fileSize": 104857600,       // required — bytes
+  "mimeType": "application/zip", // required
+  "checksum": "sha256:abc…",   // optional
+  "ttl": 3600                  // optional — seconds; must be one of the allowed presets
+}
 ```
 
-## Run tests
+Allowed `ttl` values: `900` (15 min) · `3600` (1 h) · `21600` (6 h) · `86400` (1 day) · `259200` (3 days) · `604800` (7 days). Any other value falls back to the default of `3600`.
 
-```bash
-# unit tests
-$ pnpm run test
+Response: `{ sessionId, uploadId, expiresAt }`.
 
-# e2e tests
-$ pnpm run test:e2e
+### PUT `/upload-part`
 
-# test coverage
-$ pnpm run test:cov
-```
+- Query params: `session=<sessionId>` and `part=<1–10000>`.
+- Body: raw chunk bytes. All parts except the last must be **≥ 5 MB**.
+- Response: `{ partNumber, etag }`.
 
-## Deployment
+### POST `/complete`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Request body: `{ "sessionId": "…" }`.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Response: `{ shareLink, expiresAt }` where `shareLink` is the `/receive?session=…` URL to hand to the recipient.
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
+## Configuration (`wrangler.toml`)
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKER_URL` | `http://localhost:8787` | Public base URL embedded in share links |
+| `MAX_FILE_SIZE` | `536870912` | Max upload size in bytes (512 MB) |
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+The cron trigger `*/15 * * * *` drives the cleanup handler.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+`UNLICENSED` (private) — see `package.json`.
