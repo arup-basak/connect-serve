@@ -15,6 +15,7 @@ export interface SessionRecord {
   expiresAt: number;
   parts: PartRecord[];
   complete: boolean;
+  passwordHash?: string; // SHA-256 hex; undefined means no password
 }
 
 export interface PartRecord {
@@ -29,6 +30,8 @@ export interface CreateSessionBody {
   checksum: string;
   // Requested TTL in seconds. Server clamps to ALLOWED_TTLS. Defaults to 3600.
   ttl?: number;
+  // Optional plaintext password. Server stores only the SHA-256 hash.
+  password?: string;
 }
 
 export interface CompleteBody {

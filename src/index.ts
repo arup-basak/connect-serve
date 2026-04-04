@@ -11,6 +11,16 @@ import { indexPageHtml } from "./pages/index";
 import { docsPageHtml } from "./pages/docs";
 import { runCleanup } from "./cleanup";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const buf  = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const TTL_DEFAULT  = 60 * 60;           // 1 hour (used when caller omits ttl)
 const TTL_MAX      = 7 * 24 * 60 * 60; // 7 days hard ceiling
@@ -66,7 +76,7 @@ app.post("/session", async (c) => {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { fileName, fileSize, mimeType, checksum, ttl: requestedTtl } = body;
+  const { fileName, fileSize, mimeType, checksum, ttl: requestedTtl, password } = body;
 
   if (!fileName || !fileSize || !mimeType) {
     return c.json({ error: "fileName, fileSize, and mimeType are required" }, 400);
@@ -107,6 +117,7 @@ app.post("/session", async (c) => {
     expiresAt,
     parts: [],
     complete: false,
+    ...(password ? { passwordHash: await hashPassword(password) } : {}),
   };
 
   await c.env.DB.put(`session:${sessionId}`, JSON.stringify(record), {
@@ -251,6 +262,7 @@ app.get("/status", async (c) => {
     fileSize: session.fileSize,
     mimeType: session.mimeType,
     expiresAt: session.expiresAt,
+    passwordProtected: !!session.passwordHash,
   });
 });
 
@@ -271,6 +283,17 @@ app.get("/download", async (c) => {
 
   if (Date.now() > session.expiresAt) {
     return c.json({ error: "File has expired and been deleted" }, 410);
+  }
+
+  // Password check — only if this session was created with a password
+  if (session.passwordHash) {
+    const provided = c.req.query("password") ?? c.req.header("X-Password") ?? "";
+    if (!provided) {
+      return c.json({ error: "Password required", passwordRequired: true }, 401);
+    }
+    if ((await hashPassword(provided)) !== session.passwordHash) {
+      return c.json({ error: "Incorrect password" }, 403);
+    }
   }
 
   // Support HTTP range requests — R2 handles them natively.

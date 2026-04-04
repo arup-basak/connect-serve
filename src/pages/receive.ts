@@ -169,6 +169,39 @@ export function receivePageHtml(workerUrl: string): string {
       display: none;
     }
     .error-msg.visible { display: block; }
+
+    /* Password prompt */
+    .pw-prompt {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .pw-prompt.visible { display: flex; }
+
+    .pw-hint {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .pw-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pw-field {
+      flex: 1;
+      background: #1c1c1c;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 11px 13px;
+      font-size: 14px;
+      color: #e5e5e5;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .pw-field:focus { border-color: #3b82f6; }
+    .pw-field::placeholder { color: #444; }
   </style>
 </head>
 <body>
@@ -183,6 +216,19 @@ export function receivePageHtml(workerUrl: string): string {
     </div>
 
     <div class="error-msg" id="error-msg"></div>
+
+    <div class="pw-prompt" id="pw-prompt">
+      <div class="pw-hint">🔒 This file is password protected</div>
+      <div class="pw-input-row">
+        <input
+          class="pw-field"
+          id="pw-field"
+          type="password"
+          placeholder="Enter password…"
+          autocomplete="current-password"
+        />
+      </div>
+    </div>
 
     <div class="file-info" id="file-info">
       <div class="file-name" id="file-name"></div>
@@ -210,6 +256,8 @@ export function receivePageHtml(workerUrl: string): string {
 
     if (!sessionId) showError("Invalid link — missing session ID.");
 
+    let isPasswordProtected = false;
+
     // ── Poll until upload is complete ────────────────────────────────────────
     let pollTimer;
 
@@ -231,6 +279,7 @@ export function receivePageHtml(workerUrl: string): string {
 
         if (data.ready) {
           clearInterval(pollTimer);
+          isPasswordProtected = !!data.passwordProtected;
           onReady(data);
         }
       } catch (e) {
@@ -248,8 +297,20 @@ export function receivePageHtml(workerUrl: string): string {
       $("file-meta").textContent = formatBytes(data.fileSize) + " · " + (data.mimeType || "file");
       $("file-info").classList.add("visible");
 
-      $("dl-btn").disabled = false;
-      $("dl-btn").textContent = "Download " + data.fileName;
+      if (isPasswordProtected) {
+        $("pw-prompt").classList.add("visible");
+        $("dl-btn").disabled = true;
+        $("dl-btn").textContent = "Download " + data.fileName;
+        $("pw-field").addEventListener("input", () => {
+          $("dl-btn").disabled = $("pw-field").value.length === 0;
+        });
+        $("pw-field").addEventListener("keydown", e => {
+          if (e.key === "Enter" && $("pw-field").value.length > 0) $("dl-btn").click();
+        });
+      } else {
+        $("dl-btn").disabled = false;
+        $("dl-btn").textContent = "Download " + data.fileName;
+      }
     }
 
     if (sessionId) {
@@ -264,10 +325,19 @@ export function receivePageHtml(workerUrl: string): string {
       $("progress-wrap").classList.add("visible");
 
       try {
-        const res = await fetch(WORKER + "/download?session=" + sessionId);
+        const pw = isPasswordProtected ? $("pw-field").value : "";
+        const dlUrl = WORKER + "/download?session=" + sessionId +
+          (pw ? "&password=" + encodeURIComponent(pw) : "");
+        const res = await fetch(dlUrl);
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Download failed" }));
+          if (res.status === 401 || res.status === 403) {
+            showError("Incorrect password. Please try again.");
+            $("dl-btn").disabled = false;
+            $("dl-btn").textContent = "Download";
+            return;
+          }
           throw new Error(err.error || "Download failed (" + res.status + ")");
         }
 

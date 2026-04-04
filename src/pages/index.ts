@@ -331,6 +331,48 @@ export function indexPageHtml(workerUrl: string): string {
       gap: 6px;
     }
 
+    /* ── Password protection ── */
+    .pw-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pw-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .pw-toggle-label input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--blue);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .pw-input {
+      flex: 1;
+      min-width: 160px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .pw-input:focus { border-color: var(--blue); }
+    .pw-input::placeholder { color: var(--muted2); }
+
     /* ── TTL selector ── */
     .ttl-row {
       display: flex;
@@ -558,6 +600,22 @@ export function indexPageHtml(workerUrl: string): string {
           <!-- Error -->
           <div class="error-banner" id="send-error"></div>
 
+          <!-- Password protection (optional) -->
+          <div class="pw-row" id="pw-row">
+            <label class="pw-toggle-label">
+              <input type="checkbox" id="pw-toggle-cb" onchange="togglePwField(this)" />
+              Password protect
+            </label>
+            <input
+              class="pw-input"
+              id="pw-field"
+              type="password"
+              placeholder="Enter password…"
+              autocomplete="new-password"
+              style="display:none;"
+            />
+          </div>
+
           <!-- TTL selector -->
           <div class="ttl-row" id="ttl-row">
             <span class="ttl-label">Delete after</span>
@@ -661,6 +719,21 @@ export function indexPageHtml(workerUrl: string): string {
               </div>
             </div>
 
+            <!-- Password prompt (shown when passwordProtected) -->
+            <div id="rx-pw-row" style="display:none;display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:13px;color:var(--muted);">🔒 This file is password protected</div>
+              <div style="display:flex;gap:8px;">
+                <input
+                  class="pw-input"
+                  id="rx-pw-input"
+                  type="password"
+                  placeholder="Enter password…"
+                  autocomplete="current-password"
+                  style="flex:1;"
+                />
+              </div>
+            </div>
+
             <!-- Download progress -->
             <div class="progress-block" id="rx-progress-block">
               <div class="progress-header">
@@ -749,6 +822,17 @@ export function indexPageHtml(workerUrl: string): string {
     let uploadAborted = false;
     let selectedTtl = 3600; // default 1 hour
     let sessionExpiresAt = null;
+    let sendPassword = '';
+
+    window.togglePwField = function(cb) {
+      const field = $('pw-field');
+      field.style.display = cb.checked ? '' : 'none';
+      if (!cb.checked) { field.value = ''; sendPassword = ''; }
+    };
+
+    $('pw-field') && $('pw-field').addEventListener('input', e => {
+      sendPassword = e.target.value;
+    });
 
     window.selectTtl = function(btn) {
       document.querySelectorAll('.ttl-pill').forEach(p => p.classList.remove('selected'));
@@ -810,6 +894,11 @@ export function indexPageHtml(workerUrl: string): string {
       $('progress-block').classList.remove('visible');
       $('share-block').classList.remove('visible');
       $('ttl-row').style.display = '';
+      $('pw-row').style.display = '';
+      $('pw-toggle-cb').checked = false;
+      $('pw-field').style.display = 'none';
+      $('pw-field').value = '';
+      sendPassword = '';
       $('send-btn').disabled = true;
       $('send-btn').textContent = 'Send File';
       $('send-btn').style.display = '';
@@ -842,6 +931,7 @@ export function indexPageHtml(workerUrl: string): string {
       $('progress-block').classList.add('visible');
       $('file-clear').style.display = 'none';
       $('ttl-row').style.display = 'none';
+      $('pw-row').style.display = 'none';
 
       const file = selectedFile;
       const totalParts = Math.ceil(file.size / CHUNK_SIZE);
@@ -858,6 +948,7 @@ export function indexPageHtml(workerUrl: string): string {
             mimeType: file.type || 'application/octet-stream',
             checksum: '',
             ttl: selectedTtl,
+            ...(sendPassword ? { password: sendPassword } : {}),
           }),
         });
         if (!res.ok) {
@@ -990,6 +1081,7 @@ export function indexPageHtml(workerUrl: string): string {
     let rxPollTimer = null;
     let rxSessionId = null;
     let rxMeta = null;
+    let rxPasswordProtected = false;
 
     window.startReceive = function() {
       const raw = $('rx-link-input').value.trim();
@@ -1012,12 +1104,15 @@ export function indexPageHtml(workerUrl: string): string {
 
       rxSessionId = sid;
       rxMeta = null;
+      rxPasswordProtected = false;
       $('rx-status').classList.add('visible');
       $('rx-go-btn').disabled = true;
       $('rx-link-input').disabled = true;
       $('rx-dl-btn').disabled = true;
       $('rx-dl-btn').textContent = 'Download';
       $('rx-file-pill').style.display = 'none';
+      $('rx-pw-row').style.display = 'none';
+      $('rx-pw-input').value = '';
       $('rx-progress-block').classList.remove('visible');
       $('rx-dot').className = 'status-dot pulse';
       $('rx-status-text').textContent = 'Waiting for upload to finish…';
@@ -1043,6 +1138,7 @@ export function indexPageHtml(workerUrl: string): string {
         if (data.ready) {
           clearInterval(rxPollTimer);
           rxMeta = data;
+          rxPasswordProtected = !!data.passwordProtected;
           $('rx-dot').className = 'status-dot green';
           $('rx-status-text').textContent = 'Ready to download';
 
@@ -1051,8 +1147,22 @@ export function indexPageHtml(workerUrl: string): string {
           $('rx-file-icon').textContent = fileEmoji(data.fileName);
           $('rx-file-pill').style.display = 'flex';
 
-          $('rx-dl-btn').disabled = false;
-          $('rx-dl-btn').textContent = 'Download ' + data.fileName;
+          if (rxPasswordProtected) {
+            $('rx-pw-row').style.display = 'flex';
+            $('rx-pw-row').style.flexDirection = 'column';
+            $('rx-dl-btn').disabled = true;
+            $('rx-dl-btn').textContent = 'Download ' + data.fileName;
+            // Enable download button once user types something
+            $('rx-pw-input').addEventListener('input', () => {
+              $('rx-dl-btn').disabled = $('rx-pw-input').value.length === 0;
+            });
+            $('rx-pw-input').addEventListener('keydown', e => {
+              if (e.key === 'Enter' && $('rx-pw-input').value.length > 0) $('rx-dl-btn').click();
+            });
+          } else {
+            $('rx-dl-btn').disabled = false;
+            $('rx-dl-btn').textContent = 'Download ' + data.fileName;
+          }
         }
       } catch {
         // transient — keep polling
@@ -1081,9 +1191,18 @@ export function indexPageHtml(workerUrl: string): string {
       $('rx-progress-block').classList.add('visible');
 
       try {
-        const res = await fetch(WORKER + '/download?session=' + rxSessionId);
+        const dlUrl = WORKER + '/download?session=' + rxSessionId +
+          (rxPasswordProtected && $('rx-pw-input').value ? '&password=' + encodeURIComponent($('rx-pw-input').value) : '');
+        const res = await fetch(dlUrl);
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: 'Download failed' }));
+          if (res.status === 401 || res.status === 403) {
+            showRxError('Incorrect password. Please try again.');
+            $('rx-dl-btn').disabled = false;
+            $('rx-dl-btn').textContent = 'Download ' + (rxMeta?.fileName || '');
+            $('rx-progress-block').classList.remove('visible');
+            return;
+          }
           throw new Error(err.error || 'Download failed (' + res.status + ')');
         }
 
