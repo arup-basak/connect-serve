@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import type { CompleteBody, SessionRecord } from "../types";
-import { jsonResponse, parseSessionRecord } from "../lib/api-common";
+import type { CompleteBody, SessionRecord } from "../../types";
+import { jsonResponse, parseSessionRecord } from "../../lib/api-common";
 
 export const POST: APIRoute = async ({ request }) => {
   let body: CompleteBody;

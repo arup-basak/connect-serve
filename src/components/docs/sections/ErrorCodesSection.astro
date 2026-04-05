@@ -1,0 +1,63 @@
+---
+import FieldTable from "../FieldTable.astro";
+import SectionTitle from "../SectionTitle.astro";
+---
+
+<div>
+  <SectionTitle title="Error responses" />
+  <div class="overflow-hidden rounded-xl border border-[#2a2a2a]">
+    <div class="bg-[#181818] px-[18px] py-4">
+      <FieldTable
+        class="[&_tbody_td:first-child]:w-[12%] [&_tbody_td:nth-child(2)]:w-[20%] [&_.field-type]:w-auto"
+      >
+        <thead>
+          <tr>
+            <th class="w-[12%]">Status</th>
+            <th class="w-[20%]">Meaning</th>
+            <th>When</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="field-type">400</td>
+            <td class="field-desc">Bad request</td>
+            <td class="field-desc">Missing required field, invalid <code>part</code> number, or malformed JSON.</td>
+          </tr>
+          <tr>
+            <td class="field-type">404</td>
+            <td class="field-desc">Not found</td>
+            <td class="field-desc">Session ID not in KV — either never existed or already expired.</td>
+          </tr>
+          <tr>
+            <td class="field-type">409</td>
+            <td class="field-desc">Conflict</td>
+            <td class="field-desc">Part upload attempted after <code>POST /complete</code> was already called.</td>
+          </tr>
+          <tr>
+            <td class="field-type">410</td>
+            <td class="field-desc">Gone</td>
+            <td class="field-desc">Session TTL elapsed — file has been deleted.</td>
+          </tr>
+          <tr>
+            <td class="field-type">413</td>
+            <td class="field-desc">Too large</td>
+            <td class="field-desc"><code>fileSize</code> exceeds 512 MB limit.</td>
+          </tr>
+          <tr>
+            <td class="field-type">425</td>
+            <td class="field-desc">Too early</td>
+            <td class="field-desc">Download requested before upload is complete.</td>
+          </tr>
+          <tr>
+            <td class="field-type">502</td>
+            <td class="field-desc">R2 error</td>
+            <td class="field-desc">
+              R2 rejected the part or complete call (e.g. <code>EntityTooSmall</code> if a non-final part is
+              &lt;5 MB).
+            </td>
+          </tr>
+        </tbody>
+      </FieldTable>
+    </div>
+  </div>
+</div>

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import type { CreateSessionBody, SessionRecord } from "../types";
+import type { CreateSessionBody, SessionRecord } from "../../types";
 import {
   ALLOWED_TTLS,
   TTL_DEFAULT,
@@ -8,7 +8,7 @@ import {
   MAX_FILE_SIZE_DEFAULT,
   hashPassword,
   jsonResponse,
-} from "../lib/api-common";
+} from "../../lib/api-common";
 
 export const POST: APIRoute = async ({ request }) => {
   const maxFileSize =

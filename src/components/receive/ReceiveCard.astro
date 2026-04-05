@@ -1,0 +1,54 @@
+<div
+  class="w-full max-w-[480px] rounded-2xl border border-[#2a2a2a] bg-[#141414] p-10 shadow-[0_24px_48px_rgba(0,0,0,0.5)]"
+>
+  <div class="mb-8 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#555]">Connect</div>
+  <h1 class="mb-2 text-[22px] font-semibold leading-snug" id="heading">Waiting for file…</h1>
+  <p class="mb-8 text-sm text-[#666]" id="subtext">Keep this tab open. The sender is uploading.</p>
+
+  <div class="mb-7 flex items-center gap-2.5">
+    <div
+      class="size-2 shrink-0 animate-[connect-pulse_1.4s_ease-in-out_infinite] rounded-full bg-amber-500"
+      id="status-dot"
+    >
+    </div>
+    <span class="text-sm text-[#888]" id="status-text">Waiting for sender to finish upload</span>
+  </div>
+
+  <div
+    class="mb-5 hidden rounded-lg border border-[#4d1a1a] bg-[#1f0f0f] px-4 py-3 text-[13px] text-red-400"
+    id="error-msg"
+  >
+  </div>
+
+  <div class="mb-5 hidden flex flex-col gap-2" id="pw-prompt">
+    <div class="text-[13px] text-[#888]">🔒 This file is password protected</div>
+    <div class="flex gap-2">
+      <input
+        class="flex-1 rounded-lg border border-[#2a2a2a] bg-[#1c1c1c] px-3 py-2.5 text-sm text-neutral-200 outline-none transition-colors placeholder:text-[#444] focus:border-blue-500"
+        id="pw-field"
+        type="password"
+        placeholder="Enter password…"
+        autocomplete="current-password"
+      />
+    </div>
+  </div>
+
+  <div class="mb-6 hidden rounded-[10px] border border-[#2a2a2a] bg-[#1c1c1c] p-4" id="file-info">
+    <div class="mb-1 truncate text-[15px] font-medium" id="file-name"></div>
+    <div class="text-[13px] text-[#555]" id="file-meta"></div>
+  </div>
+
+  <div class="mb-6 hidden" id="progress-wrap">
+    <div class="h-1 overflow-hidden rounded-sm bg-[#222]">
+      <div class="h-full w-0 rounded-sm bg-blue-500 transition-[width] duration-150" id="progress-fill"></div>
+    </div>
+    <div class="mt-2 text-right text-xs text-[#555]" id="progress-label">0%</div>
+  </div>
+
+  <button
+    class="w-full cursor-pointer rounded-[10px] border-none bg-blue-500 px-3.5 py-3.5 text-[15px] font-semibold text-white transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:transform-none hover:opacity-90"
+    id="dl-btn"
+    disabled>Download</button>
+
+  <div class="mt-5 text-center text-xs text-[#444]" id="expiry-note"></div>
+</div>

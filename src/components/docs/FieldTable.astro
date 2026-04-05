@@ -1,0 +1,27 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: extraClass } = Astro.props;
+---
+
+<table
+  class:list={[
+    "w-full border-collapse text-[13px]",
+    "[&_thead_th]:border-b [&_thead_th]:border-[#1e1e1e] [&_thead_th]:pb-2 [&_thead_th]:pl-0 [&_thead_th]:pr-0 [&_thead_th]:text-left",
+    "[&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.06em] [&_thead_th]:text-neutral-500",
+    "[&_tbody_tr:not(:last-child)_td]:border-b [&_tbody_tr:not(:last-child)_td]:border-[#1e1e1e]",
+    "[&_tbody_td]:px-0 [&_tbody_td]:py-2.5 [&_tbody_td]:align-top",
+    "[&_tbody_td:first-child]:w-[36%] [&_tbody_td:first-child]:pr-4",
+    "[&_.field-name]:font-mono [&_.field-name]:text-[13px] [&_.field-name]:text-neutral-200",
+    "[&_.field-req]:ml-1.5 [&_.field-req]:inline-block [&_.field-req]:rounded [&_.field-req]:px-1 [&_.field-req]:py-px [&_.field-req]:text-[10px] [&_.field-req]:font-semibold [&_.field-req]:uppercase [&_.field-req]:tracking-wide [&_.field-req]:align-middle",
+    "[&_.field-req.req]:bg-[#2a1a1a] [&_.field-req.req]:text-red-400",
+    "[&_.field-req.opt]:bg-[#1a2a1a] [&_.field-req.opt]:text-emerald-300",
+    "[&_.field-type]:w-[16%] [&_.field-type]:pr-4 [&_.field-type]:font-mono [&_.field-type]:text-xs [&_.field-type]:text-neutral-500",
+    "[&_.field-desc]:leading-normal [&_.field-desc]:text-neutral-500",
+    "[&_code]:rounded [&_code]:border [&_code]:border-[#2a2a2a] [&_code]:bg-[#111] [&_code]:px-1.5 [&_code]:py-px [&_code]:font-mono [&_code]:text-[12px] [&_code]:text-blue-300",
+    extraClass,
+  ]}
+>
+  <slot />
+</table>

@@ -1,0 +1,187 @@
+---
+import ApiEndpoint from "../ApiEndpoint.astro";
+import BodySection from "../BodySection.astro";
+import FieldTable from "../FieldTable.astro";
+import SectionTitle from "../SectionTitle.astro";
+import TtlChips from "../TtlChips.astro";
+---
+
+<div>
+  <SectionTitle title="Upload flow — 3 steps" />
+  <div class="flex flex-col gap-3">
+    <ApiEndpoint method="post" path="/session">
+      <p slot="description">
+        Initiates an R2 multipart upload and returns a <code>sessionId</code>. Call this once before
+        uploading any chunks.
+      </p>
+
+      <BodySection label="Request body (JSON)">
+        <FieldTable>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">fileName</span><span class="field-req req">req</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">Original filename including extension, e.g. <code>report.pdf</code></td>
+            </tr>
+            <tr>
+              <td><span class="field-name">fileSize</span><span class="field-req req">req</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">Total file size in bytes. Must be ≤ 536870912 (512 MB).</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">mimeType</span><span class="field-req req">req</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">
+                MIME type, e.g. <code>application/pdf</code>. Stored as R2 <code>Content-Type</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="field-name">checksum</span><span class="field-req opt">opt</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">
+                SHA-256 hex of the full file. Stored in R2 custom metadata for integrity verification by the
+                receiver. Pass <code>""</code> to skip.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="field-name">ttl</span><span class="field-req opt">opt</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">
+                Seconds until the file is auto-deleted. Must be one of the allowed values below. Defaults to
+                <code>3600</code> (1 hour) if omitted or invalid.
+                <TtlChips />
+              </td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+
+      <BodySection label="Response (200)">
+        <FieldTable>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">sessionId</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">UUID identifying this transfer session. Pass to all subsequent calls.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">uploadId</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">
+                R2 multipart upload ID. Stored server-side; clients do not need to track this.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="field-name">expiresAt</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">Unix timestamp (ms) when the file will be deleted.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+    </ApiEndpoint>
+
+    <ApiEndpoint method="put" path="/upload-part?session=<id>&part=<n>">
+      <p slot="description">
+        Streams a single chunk directly into R2. Repeat for every part. Parts can be retried idempotently —
+        re-uploading the same <code>part</code> number overwrites the previous ETag.
+      </p>
+
+      <BodySection label="Query params">
+        <FieldTable>
+          <thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">session</span><span class="field-req req">req</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">Session ID from <code>POST /session</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">part</span><span class="field-req req">req</span></td>
+              <td class="field-type">integer</td>
+              <td class="field-desc">1-indexed part number (1 – 10000). Parts must be ≥5 MB except the last.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+
+      <BodySection label="Request body">
+        <div
+          class="rounded-md border border-[#2a2a2a] border-l-[3px] border-l-blue-500 bg-[#111] px-3.5 py-3 text-[13px] leading-relaxed text-neutral-500 [&_code]:rounded [&_code]:bg-[#181818] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-xs [&_code]:text-blue-300"
+        >
+          Raw binary chunk. Set <code>Content-Type: application/octet-stream</code>. The chunk is streamed
+          directly into R2 — it is never buffered on the server.
+        </div>
+      </BodySection>
+
+      <BodySection label="Response (200)">
+        <FieldTable>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">partNumber</span></td>
+              <td class="field-type">integer</td>
+              <td class="field-desc">Echo of the part number.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">etag</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">
+                R2 ETag for this part. Stored server-side; clients do not need to track this.
+              </td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+    </ApiEndpoint>
+
+    <ApiEndpoint method="post" path="/complete">
+      <p slot="description">
+        Finalises the multipart upload and assembles the file in R2. Returns the shareable download link.
+        Idempotent — calling again returns the same link.
+      </p>
+
+      <BodySection label="Request body (JSON)">
+        <FieldTable>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">sessionId</span><span class="field-req req">req</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">Session ID from <code>POST /session</code>.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+
+      <BodySection label="Response (200)">
+        <FieldTable>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">shareLink</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">
+                Full URL to the download page, e.g. <code>https://…/receive?session=&lt;id&gt;</code>. Send
+                this to the recipient.
+              </td>
+            </tr>
+            <tr>
+              <td><span class="field-name">expiresAt</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">Unix timestamp (ms) when the file will be deleted.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+    </ApiEndpoint>
+  </div>
+</div>

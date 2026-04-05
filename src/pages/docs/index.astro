@@ -1,0 +1,25 @@
+---
+import AppTopbar from "../../components/AppTopbar.astro";
+import DocsFooter from "../../components/docs/DocsFooter.astro";
+import DocsPageHeader from "../../components/docs/DocsPageHeader.astro";
+import DownloadFlowSection from "../../components/docs/sections/DownloadFlowSection.astro";
+import ErrorCodesSection from "../../components/docs/sections/ErrorCodesSection.astro";
+import UploadFlowSection from "../../components/docs/sections/UploadFlowSection.astro";
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Connect — API Reference">
+  <AppTopbar />
+  <div class="mx-auto flex max-w-3xl flex-col gap-12 px-6 pb-16 pt-0">
+    <DocsPageHeader title="API Reference">
+      Chunked multipart upload via Cloudflare R2. Files expire after a configurable TTL (15 min – 7 days) and are
+      permanently deleted from storage. Max file size 512 MB. Chunk size must be ≥5 MB (R2 multipart minimum)
+      except for the final chunk.
+    </DocsPageHeader>
+
+    <UploadFlowSection />
+    <DownloadFlowSection />
+    <ErrorCodesSection />
+    <DocsFooter />
+  </div>
+</Layout>

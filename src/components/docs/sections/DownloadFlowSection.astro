@@ -1,0 +1,97 @@
+---
+import ApiEndpoint from "../ApiEndpoint.astro";
+import BodySection from "../BodySection.astro";
+import FieldTable from "../FieldTable.astro";
+import SectionTitle from "../SectionTitle.astro";
+---
+
+<div>
+  <SectionTitle title="Download flow" />
+  <div class="flex flex-col gap-3">
+    <ApiEndpoint method="get" path="/status?session=<id>">
+      <p slot="description">
+        Poll this until <code>ready: true</code> before calling <code>/download</code>. Safe to call every
+        2–3 seconds.
+      </p>
+
+      <BodySection label="Response (200)">
+        <FieldTable>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">ready</span></td>
+              <td class="field-type">boolean</td>
+              <td class="field-desc"><code>true</code> once <code>POST /complete</code> has been called successfully.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">expired</span></td>
+              <td class="field-type">boolean</td>
+              <td class="field-desc"><code>true</code> if the session TTL has elapsed. Stop polling and show an error.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">fileName</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">Original filename.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">fileSize</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">Total size in bytes.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">mimeType</span></td>
+              <td class="field-type">string</td>
+              <td class="field-desc">MIME type as provided by the sender.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">expiresAt</span></td>
+              <td class="field-type">number</td>
+              <td class="field-desc">Unix timestamp (ms) when the file will be deleted.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+    </ApiEndpoint>
+
+    <ApiEndpoint method="get" path="/download?session=<id>">
+      <p slot="description">
+        Streams the assembled file from R2 directly to the client. Supports <code>Range</code> requests — R2
+        handles byte-range seeking natively.
+      </p>
+
+      <BodySection label="Response headers">
+        <FieldTable>
+          <thead><tr><th>Header</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">Content-Type</span></td>
+              <td class="field-desc">MIME type from the session record.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">Content-Disposition</span></td>
+              <td class="field-desc"><code>attachment; filename="…"</code> — triggers browser save dialog.</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">Content-Length</span></td>
+              <td class="field-desc">Full file size in bytes (or range length for partial responses).</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">Accept-Ranges</span></td>
+              <td class="field-desc"><code>bytes</code> — pause/resume supported.</td>
+            </tr>
+          </tbody>
+        </FieldTable>
+      </BodySection>
+
+      <BodySection>
+        <div
+          class="rounded-md border border-[#2a2a2a] border-l-[3px] border-l-blue-500 bg-[#111] px-3.5 py-3 text-[13px] leading-relaxed text-neutral-500 [&_code]:rounded [&_code]:bg-[#181818] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-xs [&_code]:text-blue-300"
+        >
+          For large files use the browser <code>File System Access API</code> (<code>showSaveFilePicker</code>)
+          to pipe the response stream directly to disk without holding the file in memory. The web UI does this
+          automatically on supported browsers.
+        </div>
+      </BodySection>
+    </ApiEndpoint>
+  </div>
+</div>

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import type { SessionRecord } from "../types";
-import { hashPassword, jsonResponse, parseSessionRecord } from "../lib/api-common";
+import type { SessionRecord } from "../../types";
+import { hashPassword, jsonResponse, parseSessionRecord } from "../../lib/api-common";
 
 export const GET: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
