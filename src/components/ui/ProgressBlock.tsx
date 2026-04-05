@@ -4,11 +4,9 @@ interface ProgressBlockProps {
   variant: ProgressVariant;
   pct: number;
   label: string;
-  // upload stats
   speed?: string;
   eta?: string;
   partsLabel?: string;
-  // download stats
   received?: string;
 }
 
@@ -22,37 +20,34 @@ export default function ProgressBlock({
   received,
 }: ProgressBlockProps) {
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] text-neutral-500">{label}</span>
-        <span className="text-[13px] font-semibold text-neutral-200">{pct}%</span>
+    <div className="progress">
+      <div className="progress-header">
+        <span className="progress-label">{label}</span>
+        <span className="progress-pct">{pct}%</span>
       </div>
-      <div className="h-[5px] overflow-hidden rounded-[3px] bg-[#181818]">
-        <div
-          className="h-full rounded-[3px] bg-blue-500 transition-[width] duration-200"
-          style={{ width: `${pct}%` }}
-        />
+      <div className="progress-bar">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
       </div>
-      <div className="flex gap-4">
+      <div className="progress-stats">
         {variant === "upload" ? (
           <>
-            <div className="text-xs text-neutral-500">
-              Speed <span className="font-medium text-neutral-200">{speed ?? "—"}</span>
+            <div className="progress-stat">
+              Speed <strong>{speed ?? "—"}</strong>
             </div>
-            <div className="text-xs text-neutral-500">
-              ETA <span className="font-medium text-neutral-200">{eta ?? "—"}</span>
+            <div className="progress-stat">
+              ETA <strong>{eta ?? "—"}</strong>
             </div>
-            <div className="text-xs text-neutral-500">
-              Parts <span className="font-medium text-neutral-200">{partsLabel ?? "0"}</span>
+            <div className="progress-stat">
+              Parts <strong>{partsLabel ?? "0"}</strong>
             </div>
           </>
         ) : (
           <>
-            <div className="text-xs text-neutral-500">
-              Received <span className="font-medium text-neutral-200">{received ?? "—"}</span>
+            <div className="progress-stat">
+              Received <strong>{received ?? "—"}</strong>
             </div>
-            <div className="text-xs text-neutral-500">
-              Speed <span className="font-medium text-neutral-200">{speed ?? "—"}</span>
+            <div className="progress-stat">
+              Speed <strong>{speed ?? "—"}</strong>
             </div>
           </>
         )}

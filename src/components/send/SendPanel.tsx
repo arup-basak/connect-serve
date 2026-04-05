@@ -40,11 +40,7 @@ export default function SendPanel({ workerUrl }: SendPanelProps) {
 
   const uploadStartRef = useRef(0);
 
-  const connectOptsRef = useRef({
-    workerUrl,
-    ttl,
-    password: "" as string,
-  });
+  const connectOptsRef = useRef({ workerUrl, ttl, password: "" as string });
   connectOptsRef.current = {
     workerUrl,
     ttl,
@@ -77,12 +73,8 @@ export default function SendPanel({ workerUrl }: SendPanelProps) {
   }, [uppy]);
 
   useEffect(() => {
-    const onRestrict = (_file: unknown, err: Error) => {
-      setError(err.message);
-    };
-    const onUploadErr = (_file: unknown, err: Error) => {
-      setError(err.message);
-    };
+    const onRestrict = (_file: unknown, err: Error) => setError(err.message);
+    const onUploadErr = (_file: unknown, err: Error) => setError(err.message);
     const onFileAdded = () => setError("");
     const onUploadSuccess = (
       _file: unknown,
@@ -113,10 +105,7 @@ export default function SendPanel({ workerUrl }: SendPanelProps) {
       setEta(formatEta(remaining));
       const fileSize = file.size ?? total;
       const totalParts = Math.ceil(fileSize / CHUNK_SIZE);
-      const partNum = Math.min(
-        totalParts,
-        Math.ceil(progress.bytesUploaded / CHUNK_SIZE) || 1
-      );
+      const partNum = Math.min(totalParts, Math.ceil(progress.bytesUploaded / CHUNK_SIZE) || 1);
       setPartsLabel(`${partNum} / ${totalParts}`);
     };
 
@@ -173,122 +162,113 @@ export default function SendPanel({ workerUrl }: SendPanelProps) {
   const canSend = hasFile && !isUploading && !shareLink;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-[14px] border border-[#222] bg-[#111]">
-        <div className="flex flex-col gap-4 p-6">
-          {!hasFile && !shareLink && (
-            <Dashboard
-              uppy={uppy}
-              theme="dark"
-              proudlyDisplayPoweredByUppy={false}
-              hideUploadButton
-              height={280}
-              note="Up to 512 MB per file"
-            />
-          )}
+    <div className="card">
+      <div className="card-inner">
+        {!hasFile && !shareLink && (
+          <Dashboard
+            uppy={uppy}
+            theme="dark"
+            proudlyDisplayPoweredByUppy={false}
+            hideUploadButton
+            height={260}
+            note="Up to 512 MB per file"
+          />
+        )}
 
-          {hasFile && (
-            <FilePill
-              name={first.meta.name ?? "file"}
-              size={first.size ?? 0}
-              mimeType={first.meta.type ?? ""}
-              onClear={canSend ? resetSend : undefined}
-            />
-          )}
+        {hasFile && (
+          <FilePill
+            name={first.meta.name ?? "file"}
+            size={first.size ?? 0}
+            mimeType={first.meta.type ?? ""}
+            onClear={canSend ? resetSend : undefined}
+          />
+        )}
 
-          <ErrorMessage message={error} />
+        <ErrorMessage message={error} />
 
-          {!isUploading && !shareLink && (
-            <>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <label className="flex cursor-pointer select-none items-center gap-1.5 whitespace-nowrap text-xs text-neutral-500">
-                  <input
-                    type="checkbox"
-                    checked={passwordEnabled}
-                    onChange={(e) => {
-                      setPasswordEnabled(e.target.checked);
-                      if (!e.target.checked) setPassword("");
-                    }}
-                    className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-blue-500"
-                  />
-                  Password protect
-                </label>
-                {passwordEnabled && (
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password…"
-                    autoComplete="new-password"
-                    className="min-w-[160px] flex-1 rounded-lg border border-[#2d2d2d] bg-[#181818] px-3 py-1.5 text-[13px] text-neutral-200 outline-none transition-colors placeholder:text-[#3a3a3a] focus:border-blue-500"
-                  />
-                )}
-              </div>
-              <TtlSelector selected={ttl} onChange={setTtl} />
-            </>
-          )}
-
-          {isUploading && (
-            <ProgressBlock
-              variant="upload"
-              pct={uploadPct}
-              label={uploadLabel}
-              speed={speed}
-              eta={eta}
-              partsLabel={partsLabel}
-            />
-          )}
-
-          {shareLink && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-1.5 text-[13px] text-neutral-500">
-                <span className="size-1.5 shrink-0 rounded-full bg-green-500" />
-                Upload complete &mdash; share this link
-              </div>
-              <div className="flex gap-2">
-                <div
-                  className="min-w-0 flex-1 cursor-text truncate rounded-lg border border-[#2d2d2d] bg-[#181818] px-3 py-2.5 font-mono text-[13px] text-neutral-200"
-                  title={shareLink}
-                >
-                  {shareLink}
-                </div>
-                <button
-                  type="button"
-                  onClick={copyLink}
-                  className="w-auto shrink-0 cursor-pointer rounded-lg border border-[#2d2d2d] bg-[#181818] px-4 py-2.5 text-[13px] font-medium text-neutral-200 transition-colors hover:bg-[#2d2d2d] active:scale-[0.97]"
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-              {expiryLabel && (
-                <div className="text-xs text-[#3a3a3a]">{expiryLabel}</div>
+        {!isUploading && !shareLink && (
+          <>
+            <div className="pw-row">
+              <label className="pw-label">
+                <input
+                  type="checkbox"
+                  checked={passwordEnabled}
+                  onChange={(e) => {
+                    setPasswordEnabled(e.target.checked);
+                    if (!e.target.checked) setPassword("");
+                  }}
+                />
+                Password protect
+              </label>
+              {passwordEnabled && (
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password…"
+                  autoComplete="new-password"
+                  className="input"
+                  style={{ flex: 1, minWidth: "160px" }}
+                />
               )}
             </div>
-          )}
+            <TtlSelector selected={ttl} onChange={setTtl} />
+          </>
+        )}
 
-          {!shareLink && (
-            <button
-              type="button"
-              onClick={() => {
-                void uppy.upload().catch(() => {});
-              }}
-              disabled={!canSend}
-              className="w-full rounded-lg border-none bg-blue-500 px-3 py-3.5 text-sm font-semibold text-white transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:transform-none disabled:opacity-35"
-            >
-              {isUploading ? "Uploading…" : "Send File"}
-            </button>
-          )}
+        {isUploading && (
+          <ProgressBlock
+            variant="upload"
+            pct={uploadPct}
+            label={uploadLabel}
+            speed={speed}
+            eta={eta}
+            partsLabel={partsLabel}
+          />
+        )}
 
-          {shareLink && (
-            <button
-              type="button"
-              onClick={resetSend}
-              className="w-auto rounded-lg border border-[#2d2d2d] bg-[#181818] px-4 py-2.5 text-[13px] font-medium text-neutral-500 transition-colors hover:border-neutral-600 hover:text-neutral-200"
-            >
-              New Transfer
-            </button>
-          )}
-        </div>
+        {shareLink && (
+          <div className="share-section">
+            <div className="share-success">
+              <span className="share-success-dot" />
+              Upload complete — share this link
+            </div>
+            <div className="share-link-row">
+              <div className="share-link-display" title={shareLink}>
+                {shareLink}
+              </div>
+              <button
+                type="button"
+                onClick={copyLink}
+                className="btn btn-secondary btn-inline"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            {expiryLabel && <div className="share-expiry">{expiryLabel}</div>}
+          </div>
+        )}
+
+        {!shareLink && (
+          <button
+            type="button"
+            onClick={() => { void uppy.upload().catch(() => {}); }}
+            disabled={!canSend}
+            className="btn btn-primary"
+          >
+            {isUploading ? "Uploading…" : "Send File"}
+          </button>
+        )}
+
+        {shareLink && (
+          <button
+            type="button"
+            onClick={resetSend}
+            className="btn btn-secondary"
+          >
+            New Transfer
+          </button>
+        )}
       </div>
     </div>
   );
