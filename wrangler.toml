@@ -26,7 +26,7 @@ crons = ["*/15 * * * *"]
 MAX_FILE_SIZE = "536870912"
 # Set to your actual Worker URL after first deploy, e.g. https://connect-transfer-worker.your-subdomain.workers.dev
 # Or your custom domain: https://transfer.yourapp.io
-WORKER_URL = "http://localhost:4321"
+WORKER_URL = "https://connect.arupb.com"
 
 # ── Local dev overrides ──────────────────────────────────────────────────────
 [dev]

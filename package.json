@@ -2,7 +2,7 @@
   "name": "connect-serve",
   "version": "1.1.0",
   "description": "",
-  "author": "",
+  "author": "Arup Basak",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -10,6 +10,7 @@
     "build": "astro build",
     "preview": "astro build && wrangler dev --config dist/server/wrangler.json",
     "deploy": "astro build && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:only": "wrangler deploy --config dist/server/wrangler.json",
     "deploy:dry": "astro build && wrangler deploy --dry-run --config dist/server/wrangler.json",
     "tail": "wrangler tail",
     "kv:create": "wrangler kv namespace create connect-sessions",
