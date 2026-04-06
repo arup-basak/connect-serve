@@ -27,6 +27,7 @@ MAX_FILE_SIZE = "536870912"
 # Set to your actual Worker URL after first deploy, e.g. https://connect-transfer-worker.your-subdomain.workers.dev
 # Or your custom domain: https://transfer.yourapp.io
 WORKER_URL = "https://connect.arupb.com"
+# WORKER_URL = "http://localhost:8787"
 
 # ── Local dev overrides ──────────────────────────────────────────────────────
 [dev]

@@ -54,19 +54,21 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
     state === "ready" && passwordProtected ? password.length === 0 : state !== "ready";
 
   return (
-    <div className="receive-page">
-      <div className="receive-card">
-        <span className="logo receive-logo">Connect</span>
+    <div className="min-h-screen bg-[#080808] flex items-center justify-center p-6">
+      <div className="bg-[#0f0f0f] border border-white/[0.07] rounded-2xl p-10 w-full max-w-md">
+        <span className="text-[10px] font-bold tracking-[0.2em] text-blue-500 uppercase block mb-8">
+          CONNECT
+        </span>
 
-        <h1 className="receive-heading">{heading}</h1>
-        {subtext && <p className="receive-subtext">{subtext}</p>}
+        <h1 className="text-2xl font-semibold text-[#e0e0e0] mb-2">{heading}</h1>
+        {subtext && <p className="text-sm text-white/40 mb-6">{subtext}</p>}
 
         <StatusDot state={dotState} label={statusLabel} />
 
         <ErrorMessage message={error} />
 
         {fileMeta && (
-          <div style={{ marginTop: "20px" }}>
+          <div className="mt-5">
             <FilePill
               name={fileMeta.fileName}
               size={fileMeta.fileSize}
@@ -76,10 +78,8 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
         )}
 
         {fileMeta && passwordProtected && state === "ready" && (
-          <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
-            <p style={{ color: "var(--fg-mute)", fontSize: "var(--t-sm)", margin: 0 }}>
-              🔒 This file is password protected
-            </p>
+          <div className="mt-5">
+            <p className="text-xs text-white/40 mb-2">🔒 This file is password protected</p>
             <input
               type="password"
               value={password}
@@ -89,13 +89,13 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
               }}
               placeholder="Enter password…"
               autoComplete="current-password"
-              className="input"
+              className="w-full bg-[#161616] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#e0e0e0] placeholder:text-white/20 outline-none focus:border-blue-500/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             />
           </div>
         )}
 
         {state === "downloading" && (
-          <div style={{ marginTop: "20px" }}>
+          <div className="mt-5">
             <ProgressBlock
               variant="download"
               pct={downloadPct}
@@ -111,8 +111,7 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
             type="button"
             onClick={startDownload}
             disabled={downloadDisabled || state === "downloading"}
-            className="btn btn-primary"
-            style={{ marginTop: "24px" }}
+            className="mt-6 w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 rounded-xl transition-colors"
           >
             {state === "downloading"
               ? "Downloading…"
@@ -123,9 +122,9 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
         )}
 
         {state === "done" && (
-          <div className="done-row" style={{ marginTop: "24px" }}>
-            <span className="done-dot" />
-            Download complete
+          <div className="mt-6 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+            <span className="text-sm text-white/50">Download complete</span>
           </div>
         )}
       </div>

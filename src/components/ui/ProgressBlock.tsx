@@ -20,34 +20,37 @@ export default function ProgressBlock({
   received,
 }: ProgressBlockProps) {
   return (
-    <div className="progress">
-      <div className="progress-header">
-        <span className="progress-label">{label}</span>
-        <span className="progress-pct">{pct}%</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-white/35">{label}</span>
+        <span className="text-sm font-semibold text-[#e0e0e0]">{pct}%</span>
       </div>
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-blue-600 rounded-full transition-[width] duration-200 ease-out"
+          style={{ width: `${pct}%` }}
+        />
       </div>
-      <div className="progress-stats">
+      <div className="flex gap-4">
         {variant === "upload" ? (
           <>
-            <div className="progress-stat">
-              Speed <strong>{speed ?? "—"}</strong>
+            <div className="text-[11px] text-white/35">
+              Speed <strong className="text-[#e0e0e0] font-medium">{speed ?? "—"}</strong>
             </div>
-            <div className="progress-stat">
-              ETA <strong>{eta ?? "—"}</strong>
+            <div className="text-[11px] text-white/35">
+              ETA <strong className="text-[#e0e0e0] font-medium">{eta ?? "—"}</strong>
             </div>
-            <div className="progress-stat">
-              Parts <strong>{partsLabel ?? "0"}</strong>
+            <div className="text-[11px] text-white/35">
+              Parts <strong className="text-[#e0e0e0] font-medium">{partsLabel ?? "0"}</strong>
             </div>
           </>
         ) : (
           <>
-            <div className="progress-stat">
-              Received <strong>{received ?? "—"}</strong>
+            <div className="text-[11px] text-white/35">
+              Received <strong className="text-[#e0e0e0] font-medium">{received ?? "—"}</strong>
             </div>
-            <div className="progress-stat">
-              Speed <strong>{speed ?? "—"}</strong>
+            <div className="text-[11px] text-white/35">
+              Speed <strong className="text-[#e0e0e0] font-medium">{speed ?? "—"}</strong>
             </div>
           </>
         )}

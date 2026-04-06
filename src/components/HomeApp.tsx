@@ -1,54 +1,36 @@
-import { useState } from "react";
-import ReceivePanel from "./receive/ReceivePanel";
-import SendPanel from "./send/SendPanel";
+import AppPanel from "./AppPanel";
 
 interface HomeAppProps {
   workerUrl: string;
 }
 
 export default function HomeApp({ workerUrl }: HomeAppProps) {
-  const [activeTab, setActiveTab] = useState<"send" | "receive">("send");
-
   return (
-    <div className="app-root">
-      <div className="app-topbar">
-        <span className="logo">Connect</span>
-        <nav className="nav-links">
-          <a href="/docs" className="nav-link">API Docs</a>
-        </nav>
-      </div>
+    <div className="min-h-screen bg-[#080808] text-[#e0e0e0] flex flex-col items-center">
 
-      <div className="app-body">
-        <div className="tabs">
-          <button
-            type="button"
-            onClick={() => setActiveTab("send")}
-            className={`tab${activeTab === "send" ? " active" : ""}`}
-          >
-            Send
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("receive")}
-            className={`tab${activeTab === "receive" ? " active" : ""}`}
-          >
-            Receive
-          </button>
-        </div>
+      {/* Header */}
+      <header className="w-full max-w-lg mx-auto px-6 pt-7 pb-1 flex justify-between items-center">
+        <span className="text-[11px] font-bold tracking-[0.22em] text-blue-500 uppercase select-none">
+          Connect
+        </span>
+        <a href="/docs" className="text-[11px] text-white/20 hover:text-white/50 transition-colors tracking-wide">
+          API docs
+        </a>
+      </header>
 
-        {/* Always mounted to preserve state across tab switches */}
-        <div className={activeTab !== "send" ? "hidden" : ""}>
-          <SendPanel workerUrl={workerUrl} />
+      {/* Unified card */}
+      <main className="w-full max-w-lg mx-auto px-6 py-6 flex-1">
+        <div className="bg-[#0f0f0f] border border-white/[0.07] rounded-2xl overflow-hidden">
+          <AppPanel workerUrl={workerUrl} />
         </div>
-        <div className={activeTab !== "receive" ? "hidden" : ""}>
-          <ReceivePanel workerUrl={workerUrl} />
-        </div>
-      </div>
+      </main>
 
-      <footer className="app-footer">
-        connect &middot; files expire in 1 hour &middot; max 512 MB &middot;{" "}
-        <a href="/docs">API docs</a>
+      {/* Footer */}
+      <footer className="pb-10 text-center text-[11px] text-white/[0.12]">
+        connect · files expire in 1 hour · max 512 MB ·{" "}
+        <a href="/docs" className="hover:text-white/35 transition-colors">API docs</a>
       </footer>
+
     </div>
   );
 }
