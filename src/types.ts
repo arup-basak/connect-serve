@@ -37,3 +37,11 @@ export interface CreateSessionBody {
 export interface CompleteBody {
   sessionId: string;
 }
+
+export interface RTCRoomRecord {
+  roomId: string;
+  createdAt: number;
+  expiresAt: number;
+  offer?: { type: string; sdp: string };
+  answer?: { type: string; sdp: string };
+}

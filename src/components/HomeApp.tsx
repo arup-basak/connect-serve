@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReceivePanel from "./receive/ReceivePanel";
+import RTCPanel from "./rtc/RTCPanel";
 import SendPanel from "./send/SendPanel";
 
 interface HomeAppProps {
@@ -7,7 +8,7 @@ interface HomeAppProps {
 }
 
 export default function HomeApp({ workerUrl }: HomeAppProps) {
-  const [activeTab, setActiveTab] = useState<"send" | "receive">("send");
+  const [activeTab, setActiveTab] = useState<"send" | "receive" | "direct">("send");
 
   return (
     <div className="app-root">
@@ -34,6 +35,13 @@ export default function HomeApp({ workerUrl }: HomeAppProps) {
           >
             Receive
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("direct")}
+            className={`tab${activeTab === "direct" ? " active" : ""}`}
+          >
+            Direct
+          </button>
         </div>
 
         {/* Always mounted to preserve state across tab switches */}
@@ -42,6 +50,9 @@ export default function HomeApp({ workerUrl }: HomeAppProps) {
         </div>
         <div className={activeTab !== "receive" ? "hidden" : ""}>
           <ReceivePanel workerUrl={workerUrl} />
+        </div>
+        <div className={activeTab !== "direct" ? "hidden" : ""}>
+          <RTCPanel />
         </div>
       </div>
 
