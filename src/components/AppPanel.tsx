@@ -50,6 +50,14 @@ function loadOrCreateName(): string {
   }
 }
 
+function loadStoredDeviceId(): string {
+  try { return localStorage.getItem("local-device-id") ?? ""; } catch { return ""; }
+}
+
+function saveDeviceId(id: string) {
+  try { localStorage.setItem("local-device-id", id); } catch { /**/ }
+}
+
 function waitForIce(pc: RTCPeerConnection): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === "complete") { resolve(); return; }
@@ -195,13 +203,28 @@ export default function AppPanel({ workerUrl }: AppPanelProps) {
     let heartbeatId: ReturnType<typeof setInterval> | null = null;
     const register = async () => {
       try {
-        const r = await fetch(`${workerUrl}/local-devices`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "register", name: myDeviceNameRef.current }),
-        });
-        const data = await r.json() as { deviceId: string };
-        myDeviceIdRef.current = data.deviceId;
-        setMyDeviceId(data.deviceId);
+        // Try to reuse a previously stored device ID to avoid stale duplicates
+        const storedId = loadStoredDeviceId();
+        let deviceId = storedId;
+        if (storedId) {
+          // Heartbeat to refresh the existing entry; if it fails (expired), register fresh
+          const hb = await fetch(`${workerUrl}/local-devices`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "heartbeat", deviceId: storedId, name: myDeviceNameRef.current }),
+          });
+          if (!hb.ok) deviceId = ""; // entry expired, fall through to fresh register
+        }
+        if (!deviceId) {
+          const r = await fetch(`${workerUrl}/local-devices`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "register", name: myDeviceNameRef.current }),
+          });
+          const data = await r.json() as { deviceId: string };
+          deviceId = data.deviceId;
+          saveDeviceId(deviceId);
+        }
+        myDeviceIdRef.current = deviceId;
+        setMyDeviceId(deviceId);
         heartbeatId = setInterval(async () => {
           try {
             await fetch(`${workerUrl}/local-devices`, {
@@ -323,6 +346,7 @@ export default function AppPanel({ workerUrl }: AppPanelProps) {
     setMyDeviceName(trimmed);
     try { localStorage.setItem("local-device-name", trimmed); } catch { /**/ }
     setEditingName(false);
+    // Heartbeat immediately so the new name is visible to others
     if (myDeviceIdRef.current) {
       void fetch(`${workerUrl}/local-devices`, {
         method: "POST", headers: { "Content-Type": "application/json" },
