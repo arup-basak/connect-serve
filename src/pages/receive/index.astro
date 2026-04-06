@@ -1,0 +1,11 @@
+---
+import { env } from "cloudflare:workers";
+import ReceivePage from "../../components/receive/ReceivePage";
+import Layout from "../../layouts/Layout.astro";
+
+const workerUrl = env.WORKER_URL;
+---
+
+<Layout title="Connect — Receive File">
+  <ReceivePage client:load workerUrl={workerUrl} />
+</Layout>

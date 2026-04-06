@@ -1,0 +1,32 @@
+---
+interface Props {
+  method: "post" | "get" | "put";
+  path: string;
+}
+const { method, path } = Astro.props;
+const methodLabel = method.toUpperCase();
+const methodColors =
+  method === "post"
+    ? "bg-green-950/40 text-green-400"
+    : method === "get"
+      ? "bg-blue-950/40 text-blue-400"
+      : "bg-orange-950/40 text-orange-400";
+---
+
+<div class="flex flex-col overflow-hidden rounded-xl border border-[#2a2a2a]">
+  <div class="flex items-center gap-3 bg-[#111] px-[18px] py-3.5">
+    <span
+      class:list={[
+        "inline-flex shrink-0 rounded px-2 py-0.5 font-mono text-[11px] font-bold tracking-wide",
+        methodColors,
+      ]}>{methodLabel}</span>
+    <span class="min-w-0 flex-1 font-mono text-sm text-neutral-200">{path}</span>
+  </div>
+  <div class="bg-[#111] px-[18px] pb-0 pt-3 text-[13px] text-neutral-500">
+    <slot name="description" />
+  </div>
+  <div class="mx-[18px] mt-3 h-px bg-[#1e1e1e]"></div>
+  <div class="bg-[#181818] px-[18px] py-4">
+    <slot />
+  </div>
+</div>

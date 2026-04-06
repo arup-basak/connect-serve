@@ -1,0 +1,11 @@
+---
+import { env } from "cloudflare:workers";
+import HomeApp from "../components/HomeApp";
+import Layout from "../layouts/Layout.astro";
+
+const workerUrl = env.WORKER_URL;
+---
+
+<Layout title="Connect — File Transfer">
+  <HomeApp client:load workerUrl={workerUrl} />
+</Layout>

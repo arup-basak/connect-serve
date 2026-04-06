@@ -1,5 +1,5 @@
 name = "connect-transfer-worker"
-main = "src/index.ts"
+main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
@@ -14,7 +14,7 @@ bucket_name = "connect-transfers"
 # Then paste the id below.
 [[kv_namespaces]]
 binding = "DB"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "ddea8e75af3c41788c6a72cc8389e621"
 
 # ── Cron: cleanup expired sessions every 15 minutes ─────────────────────────
 [triggers]
@@ -26,7 +26,7 @@ crons = ["*/15 * * * *"]
 MAX_FILE_SIZE = "536870912"
 # Set to your actual Worker URL after first deploy, e.g. https://connect-transfer-worker.your-subdomain.workers.dev
 # Or your custom domain: https://transfer.yourapp.io
-WORKER_URL = "http://localhost:8787"
+WORKER_URL = "http://localhost:4321"
 
 # ── Local dev overrides ──────────────────────────────────────────────────────
 [dev]
