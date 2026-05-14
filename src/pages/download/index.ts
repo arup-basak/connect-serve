@@ -1,17 +1,17 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import type { SessionRecord } from "../../types";
-import { hashPassword, jsonResponse, parseSessionRecord } from "../../lib/api-common";
+import { hashPassword, jsonResponse } from "../../lib/api-common";
+import { getRedis } from "../../lib/upstash";
 
 export const GET: APIRoute = async ({ request }) => {
+  const redis = getRedis(env);
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("session");
   if (!sessionId) return jsonResponse({ error: "session required" }, 400);
 
-  const raw = await env.DB.get(`session:${sessionId}`);
-  if (!raw) return jsonResponse({ error: "Session not found or expired" }, 404);
-
-  const session: SessionRecord = parseSessionRecord(raw);
+  const session = await redis.get<SessionRecord>(`session:${sessionId}`);
+  if (!session) return jsonResponse({ error: "Session not found or expired" }, 404);
 
   if (!session.complete) {
     return jsonResponse({ error: "Upload not complete yet" }, 425);

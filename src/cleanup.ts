@@ -1,39 +1,27 @@
-import type { Bindings, SessionRecord } from "./types";
+import type { Bindings } from "./types";
+import { getRedis } from "./lib/upstash";
 
-// Runs on cron schedule (every 15 minutes via wrangler.toml)
-// Scans all KV sessions and deletes expired ones from both KV and R2.
-// Belt-and-suspenders alongside KV's own expirationTtl.
+// Runs on cron schedule (every 15 minutes via wrangler.toml).
+// Reads the `cleanup:r2` sorted set for r2Keys whose expiresAt has passed,
+// deletes them from R2, then removes them from the set. Session records in
+// Redis auto-expire via EX, so we only need to chase R2 here.
 export async function runCleanup(env: Bindings): Promise<void> {
+  const redis = getRedis(env);
   const now = Date.now();
-  let cursor: string | undefined;
-  let deleted = 0;
 
-  do {
-    const list = await env.DB.list({ prefix: "session:", cursor, limit: 100 });
+  const expired = await redis.zrange<string[]>("cleanup:r2", 0, now, {
+    byScore: true,
+  });
 
-    for (const key of list.keys) {
-      const raw = await env.DB.get(key.name);
-      if (!raw) continue;
+  if (expired.length === 0) {
+    console.log("[cleanup] no expired sessions");
+    return;
+  }
 
-      let session: SessionRecord;
-      try {
-        session = JSON.parse(raw);
-      } catch {
-        // corrupt entry — clean it up
-        await env.DB.delete(key.name);
-        continue;
-      }
+  for (const r2Key of expired) {
+    await env.R2.delete(r2Key).catch(() => {});
+  }
 
-      if (now > session.expiresAt) {
-        // Delete object from R2 (ignore 404 — already gone)
-        await env.R2.delete(session.r2Key).catch(() => {});
-        await env.DB.delete(key.name);
-        deleted++;
-      }
-    }
-
-    cursor = list.list_complete ? undefined : (list as any).cursor;
-  } while (cursor);
-
-  console.log(`[cleanup] Deleted ${deleted} expired session(s)`);
+  await redis.zremrangebyscore("cleanup:r2", 0, now);
+  console.log(`[cleanup] Deleted ${expired.length} expired R2 object(s)`);
 }

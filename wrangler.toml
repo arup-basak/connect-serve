@@ -9,13 +9,6 @@ compatibility_flags = ["nodejs_compat"]
 binding = "R2"
 bucket_name = "connect-transfers"
 
-# ── KV Namespace ─────────────────────────────────────────────────────────────
-# Create with: wrangler kv namespace create connect-sessions
-# Then paste the id below.
-[[kv_namespaces]]
-binding = "DB"
-id = "ddea8e75af3c41788c6a72cc8389e621"
-
 # ── Cron: cleanup expired sessions every 15 minutes ─────────────────────────
 [triggers]
 crons = ["*/15 * * * *"]
@@ -29,13 +22,17 @@ MAX_FILE_SIZE = "536870912"
 WORKER_URL = "https://connect.arupb.com"
 # WORKER_URL = "http://localhost:8787"
 
+# ── Secrets (set via Cloudflare dashboard or `wrangler secret put`) ──────────
+# UPSTASH_REDIS_REST_URL
+# UPSTASH_REDIS_REST_TOKEN
+
 # ── Local dev overrides ──────────────────────────────────────────────────────
 [dev]
 port = 8787
 local_protocol = "http"
 
-# ── R2 lifecycle (safety net — belt and suspenders with KV TTL) ──────────────
+# ── R2 lifecycle (safety net — belt and suspenders with Upstash TTL) ────────
 # Configure this in the Cloudflare dashboard:
 #   R2 → connect-transfers → Settings → Lifecycle rules
 #   Prefix: transfers/   Delete after: 1 day
-# This catches any objects whose KV session was cleaned up before R2 delete ran.
+# This catches any objects whose cleanup record was removed before R2 delete ran.

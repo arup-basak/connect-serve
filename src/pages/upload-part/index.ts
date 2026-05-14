@@ -1,9 +1,11 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import type { SessionRecord } from "../../types";
-import { jsonResponse, parseSessionRecord } from "../../lib/api-common";
+import { jsonResponse } from "../../lib/api-common";
+import { getRedis } from "../../lib/upstash";
 
 export const PUT: APIRoute = async ({ request }) => {
+  const redis = getRedis(env);
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("session");
   const partStr = url.searchParams.get("part");
@@ -20,10 +22,8 @@ export const PUT: APIRoute = async ({ request }) => {
     );
   }
 
-  const raw = await env.DB.get(`session:${sessionId}`);
-  if (!raw) return jsonResponse({ error: "Session not found or expired" }, 404);
-
-  const session: SessionRecord = parseSessionRecord(raw);
+  const session = await redis.get<SessionRecord>(`session:${sessionId}`);
+  if (!session) return jsonResponse({ error: "Session not found or expired" }, 404);
 
   if (session.complete) {
     return jsonResponse({ error: "Upload already completed" }, 409);
@@ -53,12 +53,10 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   const remainingTtl = Math.max(
-    60,
+    1,
     Math.ceil((session.expiresAt - Date.now()) / 1000),
   );
-  await env.DB.put(`session:${sessionId}`, JSON.stringify(session), {
-    expirationTtl: remainingTtl,
-  });
+  await redis.set(`session:${sessionId}`, session, { ex: remainingTtl });
 
   return jsonResponse({ partNumber, etag: part.etag });
 };

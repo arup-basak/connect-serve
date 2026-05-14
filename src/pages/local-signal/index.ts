@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { jsonResponse } from "../../lib/api-common";
+import { getRedis } from "../../lib/upstash";
 
 const LOCAL_TTL = 5 * 60; // 5 minutes
 
@@ -34,28 +35,28 @@ function incomingKey(deviceId: string) {
 }
 
 export const GET: APIRoute = async ({ url }) => {
+  const redis = getRedis(env);
   const roomId = url.searchParams.get("roomId");
   const deviceId = url.searchParams.get("deviceId");
 
   if (roomId) {
-    const raw = await env.DB.get(roomKey(roomId));
-    if (!raw) return jsonResponse({ error: "Room not found" }, 404);
-    const room = JSON.parse(raw) as LocalRoom;
-    // Never expose the actual password over the wire
+    const room = await redis.get<LocalRoom>(roomKey(roomId));
+    if (!room) return jsonResponse({ error: "Room not found" }, 404);
     const { password: _pw, ...safeRoom } = room;
     return jsonResponse({ ...safeRoom, passwordProtected: !!room.password });
   }
 
   if (deviceId) {
-    const raw = await env.DB.get(incomingKey(deviceId));
-    if (!raw) return jsonResponse({ incoming: null });
-    return jsonResponse({ incoming: JSON.parse(raw) as IncomingTransfer });
+    const incoming = await redis.get<IncomingTransfer>(incomingKey(deviceId));
+    if (!incoming) return jsonResponse({ incoming: null });
+    return jsonResponse({ incoming });
   }
 
   return jsonResponse({ error: "roomId or deviceId required" }, 400);
 };
 
 export const POST: APIRoute = async ({ request }) => {
+  const redis = getRedis(env);
   let body: {
     action: string;
     offerSdp?: string;
@@ -69,7 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
     password?: string;
   };
   try {
-    body = await request.json() as typeof body;
+    body = (await request.json()) as typeof body;
   } catch {
     return jsonResponse({ error: "Invalid JSON" }, 400);
   }
@@ -93,11 +94,8 @@ export const POST: APIRoute = async ({ request }) => {
       password: body.password || undefined,
       createdAt: Date.now(),
     };
-    await env.DB.put(roomKey(roomId), JSON.stringify(room), {
-      expirationTtl: LOCAL_TTL,
-    });
+    await redis.set(roomKey(roomId), room, { ex: LOCAL_TTL });
 
-    // Write incoming record so receiver can discover this transfer
     if (body.targetDeviceId && body.fileName) {
       const incoming: IncomingTransfer = {
         roomId,
@@ -107,9 +105,7 @@ export const POST: APIRoute = async ({ request }) => {
         mimeType: body.mimeType ?? "application/octet-stream",
         passwordProtected: !!body.password,
       };
-      await env.DB.put(incomingKey(body.targetDeviceId), JSON.stringify(incoming), {
-        expirationTtl: LOCAL_TTL,
-      });
+      await redis.set(incomingKey(body.targetDeviceId), incoming, { ex: LOCAL_TTL });
     }
 
     return jsonResponse({ roomId });
@@ -119,12 +115,9 @@ export const POST: APIRoute = async ({ request }) => {
     if (!body.roomId) return jsonResponse({ error: "roomId required" }, 400);
     if (!body.answerSdp) return jsonResponse({ error: "answerSdp required" }, 400);
 
-    const raw = await env.DB.get(roomKey(body.roomId));
-    if (!raw) return jsonResponse({ error: "Room not found" }, 404);
+    const room = await redis.get<LocalRoom>(roomKey(body.roomId));
+    if (!room) return jsonResponse({ error: "Room not found" }, 404);
 
-    const room = JSON.parse(raw) as LocalRoom;
-
-    // Verify password if room is protected
     if (room.password && body.password !== room.password) {
       return jsonResponse({ error: "Incorrect password" }, 403);
     }
@@ -132,16 +125,13 @@ export const POST: APIRoute = async ({ request }) => {
     room.answerSdp = body.answerSdp;
 
     const remaining = Math.max(
-      60, // KV minimum TTL
-      Math.floor((room.createdAt + LOCAL_TTL * 1000 - Date.now()) / 1000)
+      1,
+      Math.floor((room.createdAt + LOCAL_TTL * 1000 - Date.now()) / 1000),
     );
-    await env.DB.put(roomKey(body.roomId), JSON.stringify(room), {
-      expirationTtl: remaining,
-    });
+    await redis.set(roomKey(body.roomId), room, { ex: remaining });
 
-    // Remove the incoming record so it disappears from receiver's queue
     if (room.targetDeviceId) {
-      await env.DB.delete(incomingKey(room.targetDeviceId));
+      await redis.del(incomingKey(room.targetDeviceId));
     }
 
     return jsonResponse({ ok: true });

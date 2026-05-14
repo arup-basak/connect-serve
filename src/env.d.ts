@@ -5,9 +5,10 @@
 declare namespace Cloudflare {
   interface Env {
     R2: R2Bucket;
-    DB: KVNamespace;
     MAX_FILE_SIZE: string;
     WORKER_URL: string;
+    UPSTASH_REDIS_REST_URL: string;
+    UPSTASH_REDIS_REST_TOKEN: string;
     ASSETS: Fetcher;
   }
 }

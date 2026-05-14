@@ -9,8 +9,10 @@ import {
   hashPassword,
   jsonResponse,
 } from "../../lib/api-common";
+import { getRedis } from "../../lib/upstash";
 
 export const POST: APIRoute = async ({ request }) => {
+  const redis = getRedis(env);
   const maxFileSize =
     parseInt(env.MAX_FILE_SIZE ?? "") || MAX_FILE_SIZE_DEFAULT;
 
@@ -70,9 +72,8 @@ export const POST: APIRoute = async ({ request }) => {
     ...(password ? { passwordHash: await hashPassword(password) } : {}),
   };
 
-  await env.DB.put(`session:${sessionId}`, JSON.stringify(record), {
-    expirationTtl: ttlSeconds,
-  });
+  await redis.set(`session:${sessionId}`, record, { ex: ttlSeconds });
+  await redis.zadd("cleanup:r2", { score: expiresAt, member: r2Key });
 
   return jsonResponse({
     sessionId,
