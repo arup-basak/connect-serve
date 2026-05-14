@@ -34,6 +34,12 @@ export default function ReceivePage({ workerUrl }: ReceivePageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (fileMeta?.fileName) {
+      document.title = fileMeta.fileName;
+    }
+  }, [fileMeta?.fileName]);
+
   const heading =
     state === "ready" || state === "downloading" || state === "done"
       ? "Your file is ready"
